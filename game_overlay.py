@@ -16,33 +16,30 @@ def resize_foreground(fg_rgba, scale=0.3):
     new_size = (int(w * scale), int(h * scale))
     return cv2.resize(fg_rgba, new_size, interpolation=cv2.INTER_AREA)
 
-def overlay_on_background(background, fg_rgba, position='center'):
-    bg_h, bg_w = background.shape[:2]
-    fg_h, fg_w = fg_rgba.shape[:2]
+def overlay_on_background(bg, fg, position):
+    """
+    將含透明背景的前景圖 fg 貼到背景圖 bg 上，position 為 (x, y)
+    x, y 是貼圖的左上角位置
+    """
+    x, y = position
+    fg_h, fg_w = fg.shape[:2]
+    bg_h, bg_w = bg.shape[:2]
 
-    if isinstance(position, str):
-        if position == 'center':
-            x = (bg_w - fg_w) // 2
-            y = (bg_h - fg_h) // 2
-        elif position == 'bottom_center':
-            x = (bg_w - fg_w) // 2
-            y = bg_h - fg_h - 30
-        else:
-            x, y = 0, 0
-    else:
-        x, y = position
+    # 防止超出邊界
+    if x < 0: x = 0
+    if y < 0: y = 0
+    if x + fg_w > bg_w:
+        fg = fg[:, :bg_w - x]
+    if y + fg_h > bg_h:
+        fg = fg[:bg_h - y, :]
 
-    # 限制範圍，避免出界
-    if x + fg_w > bg_w or y + fg_h > bg_h:
-        return background
+    fg_h, fg_w = fg.shape[:2]
+    roi = bg[y:y + fg_h, x:x + fg_w]
 
-    roi = background[y:y+fg_h, x:x+fg_w]
-    b, g, r, a = cv2.split(fg_rgba)
-    alpha = a.astype(float) / 255.0
-    alpha_inv = 1.0 - alpha
+    fg_rgb = fg[:, :, :3]
+    fg_alpha = fg[:, :, 3:] / 255.0
+    bg_part = roi * (1 - fg_alpha)
+    fg_part = fg_rgb * fg_alpha
+    bg[y:y + fg_h, x:x + fg_w] = (bg_part + fg_part).astype(np.uint8)
 
-    for c in range(3):
-        roi[:, :, c] = (alpha * fg_rgba[:, :, c] + alpha_inv * roi[:, :, c]).astype(np.uint8)
-
-    background[y:y+fg_h, x:x+fg_w] = roi
-    return background
+    return bg

@@ -11,6 +11,66 @@ class PoseEstimator:
         )
 
     def calculate_angle(self, a, b, c):
+        a = [a.x, a.y]
+        b = [b.x, b.y]
+        c = [c.x, c.y]
+
+        radians = math.atan2(c[1]-b[1], c[0]-b[0]) - math.atan2(a[1]-b[1], a[0]-b[0])
+        angle = abs(radians*180.0/math.pi)
+
+        if angle > 180.0:
+            angle = 360 - angle
+
+        return angle
+
+    def detect_pose(self, frame):
+        image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = self.pose.process(image_rgb)
+
+        if not results.pose_landmarks:
+            return 'neutral'
+
+        lm = results.pose_landmarks.landmark
+
+        l_shoulder = lm[self.mp_pose.PoseLandmark.LEFT_SHOULDER]
+        r_shoulder = lm[self.mp_pose.PoseLandmark.RIGHT_SHOULDER]
+        l_hip = lm[self.mp_pose.PoseLandmark.LEFT_HIP]
+        r_hip = lm[self.mp_pose.PoseLandmark.RIGHT_HIP]
+        l_ankle = lm[self.mp_pose.PoseLandmark.LEFT_ANKLE]
+        r_ankle = lm[self.mp_pose.PoseLandmark.RIGHT_ANKLE]
+        l_wrist = lm[self.mp_pose.PoseLandmark.LEFT_WRIST]
+        r_wrist = lm[self.mp_pose.PoseLandmark.RIGHT_WRIST]
+        '''
+        # 原本的 hi 檢查（只要任一手高於肩膀）
+        if l_wrist.y < l_shoulder.y or r_wrist.y < r_shoulder.y:
+            return 'hi'
+        '''
+        # 簡單左右跳躍控制
+        right_up = l_wrist.y < l_shoulder.y
+        left_up = r_wrist.y < r_shoulder.y
+
+        if left_up and right_up:
+            return 'jump'
+        elif left_up:
+            return 'left'
+        elif right_up:
+            return 'right'
+
+        return 'neutral'
+'''
+import mediapipe as mp
+import cv2
+import math
+
+class PoseEstimator:
+    def __init__(self, min_detection_confidence=0.5, min_tracking_confidence=0.5):
+        self.mp_pose = mp.solutions.pose
+        self.pose = self.mp_pose.Pose(
+            min_detection_confidence=min_detection_confidence,
+            min_tracking_confidence=min_tracking_confidence
+        )
+
+    def calculate_angle(self, a, b, c):
         """計算三個點之間的角度"""
         a = [a.x, a.y]
         b = [b.x, b.y]
@@ -66,3 +126,4 @@ class PoseEstimator:
             return 'left'
 
         return 'neutral'
+'''
